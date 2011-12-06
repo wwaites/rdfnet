@@ -1,3 +1,8 @@
+###
+### This is intended to take RPSL input and fold entries 
+### that span multiple lines into one line with \n characters
+### as an intermediate step.
+###
 BEGIN {
     record = "";
 }

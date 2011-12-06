@@ -1,0 +1,8 @@
+Tools for converting networking information (e.g. RPSL) into RDF.
+
+Typical usage:
+
+    zcat radb.db.gz \
+    	 | awk -f fold.awk \
+	 | awk -v base=whois://whois.radb.net rpsl.awk \
+	 | gzip -9c - > radb.ttl.gz

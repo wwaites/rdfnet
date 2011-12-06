@@ -1,3 +1,10 @@
+###
+### This script will convert an RPSL database into Turtle
+###
+### It has a configurable variable called "base" which is
+### used to form the base of URIs.
+###
+
 ## fix escaping for literals. only allow \n and \" to
 ## be escaped
 function literal(s) {
