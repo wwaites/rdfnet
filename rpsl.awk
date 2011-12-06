@@ -1,3 +1,11 @@
+## fix escaping for literals. only allow \n and \" to
+## be escaped
+function literal(s) {
+    p = gensub(/^"/, "\\\\\"", "g", s)
+    q = gensub(/([^\\])"/, "\\1\\\\\"", "g", p);
+    return gensub(/\\([^nrt"])/, "\\1", "g", q);
+}
+
 BEGIN {
     print "@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>.";
     print "@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>.";
@@ -20,7 +28,6 @@ BEGIN {
 	print " ."
     }
     inobj = "false";
-    inaddress = "false"; ## kludge!!!
     print
 }
 
@@ -83,17 +90,7 @@ BEGIN {
 /^address:/ {
     if (inobj == "true") {
 	sub(/^address:[\t ]*/, "");
-	printf(";\n\tdc:description \"\"\"%s\"\"\"", $0);
-	inaddress = "true";
-    }
-}
-
-/^[\t ]/ {
-    if (inobj == "true") {
-	if (inaddress == "true") {
-	    sub(/^[\t ]*/, "");
-	    printf(";\n\tdc:description \"\"\"%s\"\"\"", $0);
-	}
+	printf(";\n\tdc:description \"\"\"%s\"\"\"", literal($0));
     }
 }
 
@@ -111,7 +108,7 @@ BEGIN {
 /^descr:/ {
     if (inobj == "true" && $2 != "") {
 	sub(/^[^:]*:[\t ]*/, "");
-	printf(";\n\tdc:description \"\"\"%s\"\"\"", $0);
+	printf(";\n\tdc:description \"\"\"%s\"\"\"", literal($0));
     }
 }
 
