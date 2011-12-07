@@ -8,7 +8,7 @@
 ###        note no trailing slash!
 ### outbase - basename for the output files, default rpsl
 ### chunk - chunk size, number of records per output file, default
-###         is 25000 which tends to make files ~100MB is size.
+###         is 100000.
 ###
 
 ## fix escaping for literals. only allow \n and \" to
@@ -38,6 +38,29 @@ function newfile() {
     header();
 }
 
+function newobj() {
+    delete obj;
+    objidx = 0;
+    inobj = "true";
+}
+
+function append(s) {
+    if (inobj == "true") {
+	obj[objidx] = s;
+	objidx++;
+    }
+}
+
+function writeobj() {
+    if (inobj == "true") {
+	for (i=0; i<objidx; i++) {
+	    printf("%s", obj[i]) >outfile;
+	}
+	printf(".\n\n") >outfile;
+	inobj = "false";
+    }
+}
+
 BEGIN {
     if (!base) {
 	base = "whois://whois.ripe.net";
@@ -46,7 +69,7 @@ BEGIN {
 	outbase = "rpsl";
     }
     if (!chunk) {
-	chunk = 25000;
+	chunk = 100000;
     }
     inobj = "false";
     nrecords = 0;
@@ -56,173 +79,143 @@ BEGIN {
 
 /^$/ {
     if (inobj == "true") {
-	print " ." >outfile
+	writeobj();
 	nrecords += 1;
 	if (nrecords % chunk == 0) {
 	    newfile();
 	}
     }
-    inobj = "false";
-    print >outfile;
 }
 
 /^as-block:/ {
-    inobj = "true";
-    printf("<%s/%s-%s> a rpsl:AutonomousSystemBlock", base, $2, $4) >outfile;
+    newobj();
+    append(sprintf("<%s/%s-%s> a rpsl:AutonomousSystemBlock", base, $2, $4));
     gsub(/AS/, "");
-    printf(";\n\trpsl:startAutNum \"%s\"^^xsd:integer", $2) >outfile;
-    printf(";\n\trpsl:endAutNum \"%s\"^^xsd:integer", $4) >outfile;
+    append(sprintf(";\n\trpsl:startAutNum \"%s\"^^xsd:integer", $2));
+    append(sprintf(";\n\trpsl:endAutNum \"%s\"^^xsd:integer", $4));
 }
 
 /^as-set:/ {
-    inobj = "true";
-    printf("<%s/%s> a rpsl:AutonomousSystemSet", base, $2) >outfile;
+    newobj();
+    append(sprintf("<%s/%s> a rpsl:AutonomousSystemSet", base, $2));
 }
 
 /^aut-num:/ {
-    inobj = "true";
-    printf("<%s/%s> a rpsl:AutonomousSystem", base, $2) >outfile;
+    newobj();
+    append(sprintf("<%s/%s> a rpsl:AutonomousSystem", base, $2));
     sub(/^aut-num:[\t ]*AS/, "");
-    printf(";\n\trpsl:autNum \"%s\"^^xsd:integer", $0) >outfile;
+    append(sprintf(";\n\trpsl:autNum \"%s\"^^xsd:integer", $0));
 }
 
 /^inetnum:/ {
-    inobj = "true";
+    newobj();
     start_addr = $2;
     ## todo calculate mask
     end_addr = $4;
+    append("_:placeholder a rpsl:Network");
+    append(";\n\tnet:address [];");
 }
 
 /^netname:/ {
     if (inobj == "true") {
-	printf("<%s/%s> a rpsl:Network", base, $2) >outfile;
-	printf(";\n\tnet:address [ net:family net:IP4; net:addr \"%s\" ]", start_addr) >outfile;
+	obj[0] = sprintf("<%s/%s> a rpsl:Network", base, $2);
+	obj[1] = sprintf(";\n\tnet:address [ net:family net:IP4; net:addr \"%s\" ]", start_addr);
     }
-    
 }
 
 /^route:/ {
-    inobj = "true";
-    printf("<%s/%s> a rpsl:Route", base, $2) >outfile;
+    newobj();
+    append(sprintf("<%s/%s> a rpsl:Route", base, $2));
     sub(/^route:[\t ]*/, "");
     sub(/^/, "[ net:family net:IP4; net:addr \"");
     sub(/\//, "\"; net:prefix \"");
     sub(/$/, "\"^^xsd:integer ]");
-    printf(";\n\tnet:address %s", $0) >outfile;
+    append(sprintf(";\n\tnet:address %s", $0));
 }
 
 /^origin:/ {
-    if (inobj == "true") {
-	printf(";\n\trpsl:origin <%s/%s>", base, $2) >outfile;
-    }
+    append(sprintf(";\n\trpsl:origin <%s/%s>", base, $2));
 }
 
 /^organisation:/ {
-    inobj = "true";
-    printf("<%s/%s> a foaf:Organisation", base, $2) >outfile;
+    newobj();
+    append(sprintf("<%s/%s> a foaf:Organisation", base, $2));
 }
 
 /^address:/ {
-    if (inobj == "true") {
-	sub(/^address:[\t ]*/, "");
-	printf(";\n\tdc:description \"\"\"%s\"\"\"", literal($0)) >outfile;
-    }
+    sub(/^address:[\t ]*/, "");
+    append(sprintf(";\n\tdc:description \"\"\"%s\"\"\"", literal($0)));
 }
 
 /^domain:/ {
-    inobj = "true";
-    printf("<dns:%s> a rpsl:Domain", $2) >outfile;
+    newobj();
+    append(sprintf("<dns:%s> a rpsl:Domain", $2));
 }
 
 /^nserver:/ {
-    if (inobj == "true") {
-	printf(";\n\trpsl:nameserver <dns:%s>", $2) >outfile;
-    }
+    newobj();
+    append(sprintf(";\n\trpsl:nameserver <dns:%s>", $2));
 }
 
 /^descr:/ {
-    if (inobj == "true" && $2 != "") {
+    if ($2 != "") {
 	sub(/^[^:]*:[\t ]*/, "");
-	printf(";\n\tdc:description \"\"\"%s\"\"\"", literal($0)) >outfile;
+	append(sprintf(";\n\tdc:description \"\"\"%s\"\"\"", literal($0)));
     }
 }
 
 /^as-name:/ {
-    if (inobj == "true") {
-	printf(";\n\tdc:identifier \"%s\"", literal($2)) >outfile;
-    }
+    append(sprintf(";\n\tdc:identifier \"%s\"", literal($2)));
 }
 
 /^changed:/ {
-    if (inobj == "true") {
-	printf(";\n\trpsl:changedBy [ foaf:mbox <mailto:%s> ]", $2) >outfile;
-	printf(";\n\tdc:modified \"%s\"", literal($3)) >outfile;
-    }
+    append(sprintf(";\n\trpsl:changedBy [ foaf:mbox <mailto:%s> ]", $2));
+    append(sprintf(";\n\tdc:modified \"%s\"", literal($3)));
 }
 
 /^members:/ {
-    if (inobj == "true") {
-	sub(/^members:[\t ]*/, "");
-	gsub(/,/, " ");
-	gsub(/\t/, " ");
-	gsub(/  */, " ");
-	split($0, members, " ");
-	for (m in members) {
-	    printf(";\n\trpsl:member <%s/%s>", base, members[m]) >outfile;
-	}
+    sub(/^members:[\t ]*/, "");
+    gsub(/,/, " ");
+    gsub(/\t/, " ");
+    gsub(/  */, " ");
+    split($0, members, " ");
+    for (m in members) {
+	append(sprintf(";\n\trpsl:member <%s/%s>", base, members[m]));
     }
 }
 
 /^org:/ {
-    if (inobj == "true") {
-	printf(";\n\trpsl:organisation <%s/%s>", base, $2) >outfile;
-    }
+    append(sprintf(";\n\trpsl:organisation <%s/%s>", base, $2));
 }
 
 /^admin-c:/ {
-    if (inobj == "true") {
-	printf(";\n\trpsl:adminContact <%s/%s>", base, $2) >outfile;
-    }
+    append(sprintf(";\n\trpsl:adminContact <%s/%s>", base, $2));
 }
 
 /^tech-c:/ {
-    if (inobj == "true") {
-	printf(";\n\trpsl:techContact <%s/%s>", base, $2) >outfile;
-    }
+    append(sprintf(";\n\trpsl:techContact <%s/%s>", base, $2));
 }
 
 /^mnt-by:/ {
-    if (inobj == "true") {
-	printf(";\n\trpsl:maintainer <%s/%s>", base, $2) >outfile;
-    }
+    append(sprintf(";\n\trpsl:maintainer <%s/%s>", base, $2));
 }
 
 /^mnt-routes:/ {
-    if (inobj == "true") {
-	printf(";\n\trpsl:routeMaintainer <%s/%s>", base, $2) >outfile;
-    }
+    append(sprintf(";\n\trpsl:routeMaintainer <%s/%s>", base, $2));
 }
 
 /^mnt-domains:/ {
-    if (inobj == "true") {
-	printf(";\n\trpsl:domainMaintainer <%s/%s>", base, $2) >outfile;
-    }
+    append(sprintf(";\n\trpsl:domainMaintainer <%s/%s>", base, $2));
 }
 
 /^mnt-lower:/ {
-    if (inobj == "true") {
-	printf(";\n\trpsl:lowerMaintainer <%s/%s>", base, $2) >outfile;
-    }
+    append(sprintf(";\n\trpsl:lowerMaintainer <%s/%s>", base, $2));
 }
 
 /^source:/ {
-    if (inobj == "true") {
-	printf(";\n\tdc:source \"%s\"", $2) >outfile;
-    }
+    append(sprintf(";\n\tdc:source \"%s\"", $2));
 }
 
 END {
-    if (inobj == "true") {
-	printf(".\n") >outfile;
-    }
+    writeobj();
 }
