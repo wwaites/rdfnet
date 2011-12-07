@@ -5,9 +5,11 @@
 ###
 
 ## fix escaping. remove all backslashes. escape double quotes.
+## remove incorrect comments...
 function escape(s) {
-    ns = gensub(/\\/, "", "g", s)
-    return gensub(/"/, "\\\\\"", "g", ns);
+    ns = gensub(/\\/, "", "g", s);
+    nc = gensub(/#.*$/, "", "g", nc);
+    return gensub(/"/, "\\\\\"", "g", nc);
 }
 
 BEGIN {
