@@ -8,7 +8,7 @@
 ## remove incorrect comments...
 function escape(s) {
     ns = gensub(/\\/, "", "g", s);
-    nc = gensub(/#.*$/, "", "g", nc);
+    nc = gensub(/[\t ]*#.*$/, "", 1, ns);
     return gensub(/"/, "\\\\\"", "g", nc);
 }
 
