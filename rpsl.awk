@@ -11,14 +11,6 @@
 ###         is 100000.
 ###
 
-## fix escaping for literals. only allow \n and \" to
-## be escaped
-function literal(s) {
-    p = gensub(/^"/, "\\\\\"", "g", s)
-    q = gensub(/([^\\])"/, "\\1\\\\\"", "g", p);
-    return gensub(/\\([^nrt"])/, "\\1", "g", q);
-}
-
 function header() {
     print "@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>." >outfile;
     print "@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>." >outfile;
@@ -146,7 +138,7 @@ BEGIN {
 
 /^address:/ {
     sub(/^address:[\t ]*/, "");
-    append(sprintf(";\n\tdc:description \"\"\"%s\"\"\"", literal($0)));
+    append(sprintf(";\n\tdc:description \"\"\"%s\"\"\"", $0));
 }
 
 /^domain:/ {
@@ -161,17 +153,17 @@ BEGIN {
 /^descr:/ {
     if ($2 != "") {
 	sub(/^[^:]*:[\t ]*/, "");
-	append(sprintf(";\n\tdc:description \"\"\"%s\"\"\"", literal($0)));
+	append(sprintf(";\n\tdc:description \"\"\"%s\"\"\"", $0));
     }
 }
 
 /^as-name:/ {
-    append(sprintf(";\n\tdc:identifier \"%s\"", literal($2)));
+    append(sprintf(";\n\tdc:identifier \"%s\"", $2));
 }
 
 /^changed:/ {
     append(sprintf(";\n\trpsl:changedBy [ foaf:mbox <mailto:%s> ]", $2));
-    append(sprintf(";\n\tdc:modified \"%s\"", literal($3)));
+    append(sprintf(";\n\tdc:modified \"%s\"", $3));
 }
 
 /^members:/ {

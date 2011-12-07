@@ -3,6 +3,13 @@
 ### that span multiple lines into one line with \n characters
 ### as an intermediate step.
 ###
+
+## fix escaping. remove all backslashes. escape double quotes.
+function escape(s) {
+    ns = gensub(/\\/, "", "g", s)
+    return gensub(/"/, "\\\\\"", "g", ns);
+}
+
 BEGIN {
     record = "";
 }
@@ -11,12 +18,12 @@ BEGIN {
     if (record != "") {
 	print record;
     }
-    record = $0;
+    record = escape($0);
 }
 
 /^[\t ]/ {
     sub(/^[\t ]*/, "")
-    record = sprintf("%s\\n%s", record, $0);
+    record = sprintf("%s\\n%s", record, escape($0));
 }
 
 /^$/ {
