@@ -39,6 +39,9 @@ function newfile() {
 }
 
 function newobj() {
+    if (inobj == "true") {
+	writeobj();
+    }
     delete obj;
     objidx = 0;
     inobj = "true";
@@ -79,7 +82,6 @@ BEGIN {
 
 /^$/ {
     if (inobj == "true") {
-	writeobj();
 	nrecords += 1;
 	if (nrecords % chunk == 0) {
 	    newfile();
@@ -153,7 +155,6 @@ BEGIN {
 }
 
 /^nserver:/ {
-    newobj();
     append(sprintf(";\n\trpsl:nameserver <dns:%s>", $2));
 }
 
@@ -194,6 +195,10 @@ BEGIN {
 
 /^tech-c:/ {
     append(sprintf(";\n\trpsl:techContact <%s/%s>", base, $2));
+}
+
+/^zone-c:/ {
+    append(sprintf(";\n\trpsl:zoneContact <%s/%s>", base, $2));
 }
 
 /^mnt-by:/ {
